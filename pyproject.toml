@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ashare-rotation-agent"
+version = "0.1.0"
+description = "MVP for A-share short-term capital rotation and catch-up strategy research."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "akshare>=1.18.0",
+  "baostock>=0.9.3",
+  "fastapi>=0.115.0",
+  "mcp>=1.2.0",
+  "pandas>=2.2.0",
+  "pydantic>=2.8.0",
+  "tushare>=1.4.0",
+  "uvicorn>=0.30.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2.0",
+]
+
+[project.scripts]
+ashare-api = "ashare_agent.apps.api.main:main"
+ashare-mcp = "ashare_agent.apps.mcp_server.server:main"
+ashare-report = "ashare_agent.scripts.run_mock_report:main"
+ashare-sync = "ashare_agent.scripts.sync_market_data:main"
+
+[tool.setuptools.packages.find]
+where = ["packages"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["packages"]

@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Local data and generated reports
+data/
+reports/
+*.duckdb
+*.sqlite
+*.parquet
+*.csv
+
+# Environment files
+.env
+.env.*
+
+# Third-party stock runtime credentials/templates
+stock/instock/config/eastmoney_cookie.txt
+stock/instock/config/proxy.txt
+stock/instock/config/trade_client.json

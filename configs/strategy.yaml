@@ -1,0 +1,20 @@
+mainline_score:
+  fund_flow_strength: 0.20
+  amount_growth: 0.15
+  sector_return: 0.15
+  limit_up_ladder: 0.15
+  breadth: 0.10
+  leader_strength: 0.10
+  continuity: 0.10
+  catalyst_strength: 0.05
+
+catchup_score:
+  mainline_purity: 0.20
+  fresh_capital: 0.15
+  position_advantage: 0.15
+  amount_expansion: 0.10
+  diffusion_match: 0.10
+  historical_catchup: 0.10
+  next_day_premium: 0.10
+  lhb_preference: 0.05
+  risk_penalty: 0.05
