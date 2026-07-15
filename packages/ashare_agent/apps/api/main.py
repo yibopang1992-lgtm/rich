@@ -5,13 +5,23 @@ from fastapi import FastAPI
 from datetime import date
 
 from ashare_agent.data_sources.provider_factory import get_provider
-from ashare_agent.models import BacktestResult, CatchupCandidate, MainlineScore, MarketOverview, RotationStatus
+from ashare_agent.models import (
+    BacktestResult,
+    CatchupCandidate,
+    HighLowSwitchSignal,
+    MainlineScore,
+    MarketOverview,
+    RotationStatus,
+    SectorLimitupLinkage,
+)
 from ashare_agent.reports import render_markdown_report
 from ashare_agent.scripts.sync_market_data import sync_market_data
 from ashare_agent.settings import get_db_path
 from ashare_agent.storage.sqlite_store import SQLiteMarketStore
 from ashare_agent.strategy.scoring import (
+    analyze_limitup_linkage,
     find_catchup_candidates,
+    find_high_low_switch_signals,
     get_market_overview,
     get_rotation_status,
     run_mock_backtest,
@@ -96,6 +106,16 @@ def create_app() -> FastAPI:
     def catchup_candidates(max_candidates: int = 5) -> list[CatchupCandidate]:
         provider, _ = get_provider()
         return find_catchup_candidates(provider, max_candidates=max_candidates)
+
+    @app.get("/strategy/limitup-linkage", response_model=list[SectorLimitupLinkage])
+    def limitup_linkage(max_items: int = 10) -> list[SectorLimitupLinkage]:
+        provider, _ = get_provider()
+        return analyze_limitup_linkage(provider, max_items=max_items)
+
+    @app.get("/strategy/high-low-switch", response_model=list[HighLowSwitchSignal])
+    def high_low_switch(max_candidates: int = 8) -> list[HighLowSwitchSignal]:
+        provider, _ = get_provider()
+        return find_high_low_switch_signals(provider, max_candidates=max_candidates)
 
     @app.get("/strategy/rotation", response_model=RotationStatus)
     def rotation() -> RotationStatus:

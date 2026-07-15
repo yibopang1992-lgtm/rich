@@ -10,6 +10,9 @@ Use this skill to validate the rotation and catch-up strategy against historical
 When evaluating strategy validity, read
 `../references/yangjia-emotion-framework.md` and segment results by emotion
 cycle, leader state, climax-next-day risk, and position-cap rules.
+For limit-up linkage or high-low-switch validation, also read
+`../references/limitup-linkage-framework.md` and
+`../references/high-low-switch-framework.md`.
 
 ## Required Workflow
 
@@ -17,15 +20,19 @@ cycle, leader state, climax-next-day risk, and position-cap rules.
 2. Run the available backtest endpoint or script.
 3. Inspect whether the data source is mock, Baostock, Eastmoney money flow, AKShare events, or derived features.
 4. Segment performance by emotion cycle when data allows: 冰点, 启动, 发酵, 高潮, 分歧, 退潮.
-5. Separate intraday-available signals from after-close signals.
-6. Report metrics, red-line violations, and data gaps.
-7. Check future-leakage risks before interpreting results.
+5. Segment limit-up linkage samples by same-sector limit-up count, market limit-up count, leader premium, and next-day profit-taking risk.
+6. Segment high-low-switch samples by leader divergence, middle-tier weakness, low-position evidence, and whether candidates avoided the middle tier.
+7. Separate intraday-available signals from after-close signals.
+8. Report metrics, red-line violations, and data gaps.
+9. Check future-leakage risks before interpreting results.
 
 ## Commands
 
 ```bash
 curl -sS http://9.134.113.106:8000/data/status
 curl -sS http://9.134.113.106:8000/backtest/daily
+curl -sS http://9.134.113.106:8000/strategy/limitup-linkage
+curl -sS http://9.134.113.106:8000/strategy/high-low-switch
 ```
 
 For local test runs:
@@ -49,11 +56,15 @@ Always include:
 - Market environment and sector stage split if available.
 - Emotion-cycle split if available.
 - Results after applying red-line filters: no 退潮 trades, no rear-stock chasing after 高潮, no high-confidence position when data quality is capped.
+- Linkage samples: sector limit-up count >= 3, one-leader classification, next-day premium/stop-loss behavior.
+- High-low-switch samples: low-position filter pass rate, middle-tier veto effect, leader-breakdown dependency.
 
 ## Future Leakage Rules
 
 - 龙虎榜 can only be used after close.
 - AKShare limit-up pool first/last seal time can be used only at or after the observed timestamp.
+- Same-sector limit-up count can be used only after the relevant limit-up event time or after-close, depending on signal definition.
+- Leader classification by final封板/连板 can be used after the observed timestamp only; after-close classification cannot be used for intraday entry backtests.
 - Derived rush-accumulation features are valid only after the underlying quote and money-flow timestamp.
 - Announcements must use actual publish time.
 - Do not use future industry classifications.
@@ -71,6 +82,8 @@ Always include:
 - 最大风险：
 - 情绪周期有效性：
 - 红线过滤效果：
+- 板块联动有效性：
+- 高低切换有效性：
 
 ## 指标表
 

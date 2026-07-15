@@ -182,6 +182,36 @@ class RotationStatus(BaseModel):
     as_of: datetime
 
 
+class SectorLimitupLinkage(BaseModel):
+    sector_name: str
+    limit_up_count: int = Field(ge=0)
+    is_linked: bool
+    leader_symbol: str | None = None
+    leader_name: str | None = None
+    follower_symbols: list[str] = Field(default_factory=list)
+    score: float = Field(ge=0, le=100)
+    reasons: list[str]
+    risks: list[str]
+    trigger_conditions: list[str]
+    invalid_conditions: list[str]
+    as_of: datetime
+
+
+class HighLowSwitchSignal(BaseModel):
+    symbol: str
+    name: str
+    sector_name: str
+    score: float = Field(ge=0, le=100)
+    tier: CandidateTier
+    role: str
+    preconditions: list[str]
+    reasons: list[str]
+    risks: list[str]
+    trigger_conditions: list[str]
+    invalid_conditions: list[str]
+    as_of: datetime
+
+
 class MarketOverview(BaseModel):
     as_of: datetime
     data_mode: Literal["mock", "live", "historical"]

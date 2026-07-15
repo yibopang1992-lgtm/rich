@@ -29,6 +29,7 @@ ashare-api = "ashare_agent.apps.api.main:main"
 ashare-mcp = "ashare_agent.apps.mcp_server.server:main"
 ashare-report = "ashare_agent.scripts.run_mock_report:main"
 ashare-sync = "ashare_agent.scripts.sync_market_data:main"
+ashare-backfill = "ashare_agent.scripts.backfill_recent_data:main"
 
 [tool.setuptools.packages.find]
 where = ["packages"]

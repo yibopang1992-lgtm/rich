@@ -525,6 +525,28 @@ class SQLiteMarketStore:
             ).fetchall()
         return [self._row_to_stock(row, memberships.get(row["symbol"], [])) for row in rows]
 
+    def load_stock_snapshots_by_trade_date(self, trade_date: str) -> list[StockSnapshot]:
+        self.init_db()
+        memberships = self.load_latest_memberships()
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT s.*
+                FROM stock_snapshots s
+                JOIN (
+                  SELECT symbol, MAX(as_of) AS as_of
+                  FROM stock_snapshots
+                  WHERE trade_date = ?
+                  GROUP BY symbol
+                ) latest
+                  ON latest.symbol = s.symbol AND latest.as_of = s.as_of
+                WHERE s.trade_date = ?
+                ORDER BY s.amount DESC
+                """,
+                (trade_date, trade_date),
+            ).fetchall()
+        return [self._row_to_stock(row, memberships.get(row["symbol"], [])) for row in rows]
+
     def load_latest_stock_snapshot_dicts(self, limit: int = 50) -> list[dict[str, Any]]:
         if not self.latest_as_of("stock_snapshots"):
             return []
@@ -579,6 +601,29 @@ class SQLiteMarketStore:
                 LIMIT ?
                 """,
                 (as_of, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def load_moneyflow_dicts_by_trade_date(self, trade_date: str, limit: int = 20_000) -> list[dict[str, Any]]:
+        self.init_db()
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT m.as_of, m.symbol, m.name, m.pct_change, m.latest,
+                       m.main_net_inflow, m.large_order_net_inflow, m.raw_source
+                FROM stock_moneyflow m
+                JOIN (
+                  SELECT symbol, MAX(as_of) AS as_of
+                  FROM stock_moneyflow
+                  WHERE trade_date = ?
+                  GROUP BY symbol
+                ) latest
+                  ON latest.symbol = m.symbol AND latest.as_of = m.as_of
+                WHERE m.trade_date = ?
+                ORDER BY m.main_net_inflow DESC
+                LIMIT ?
+                """,
+                (trade_date, trade_date, limit),
             ).fetchall()
         return [dict(row) for row in rows]
 

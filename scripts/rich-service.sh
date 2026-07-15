@@ -137,6 +137,13 @@ sync_data() {
   "${VENV_DIR}/bin/python" -m ashare_agent.scripts.sync_market_data "${@:2}"
 }
 
+backfill_data() {
+  load_env
+  ensure_venv
+  cd "${ROOT_DIR}"
+  "${VENV_DIR}/bin/python" -m ashare_agent.scripts.backfill_recent_data "${@:2}"
+}
+
 case "${1:-start}" in
   start)
     start
@@ -157,8 +164,11 @@ case "${1:-start}" in
   sync)
     sync_data "$@"
     ;;
+  backfill)
+    backfill_data "$@"
+    ;;
   *)
-    echo "Usage: $0 {start|stop|restart|status|logs|sync}" >&2
+    echo "Usage: $0 {start|stop|restart|status|logs|sync|backfill}" >&2
     exit 2
     ;;
 esac

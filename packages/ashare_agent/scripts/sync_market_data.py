@@ -156,9 +156,19 @@ def sync_market_data(
 
     if provider in {"auto", "derived-features", "instock-em", "instock-em-stock"}:
         try:
+            stock_inputs = (
+                store.load_stock_snapshots_by_trade_date(selected_date.isoformat())
+                if trade_date
+                else store.load_latest_stock_snapshots()
+            )
+            moneyflow_inputs = (
+                store.load_moneyflow_dicts_by_trade_date(selected_date.isoformat(), limit=20_000)
+                if trade_date
+                else store.load_latest_moneyflow_dicts(limit=20_000)
+            )
             features, rush_events = build_stock_features(
-                store.load_latest_stock_snapshots(),
-                store.load_latest_moneyflow_dicts(limit=20_000),
+                stock_inputs,
+                moneyflow_inputs,
             )
             feature_rows = store.save_stock_features(features)
             store.delete_news_events(selected_date.isoformat(), "rush_accumulation")

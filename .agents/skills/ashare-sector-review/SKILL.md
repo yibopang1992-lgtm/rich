@@ -10,11 +10,15 @@ Use this skill to answer sector-level questions such as “医药是不是补涨
 When the request involves mainline status, catch-up, leader validation,
 climax/fading risk, or trade plan, read
 `../references/yangjia-emotion-framework.md` before giving the conclusion.
+When the request involves limit-up diffusion, sector linkage, dragon/follower
+classification, or high-low catch-up switching, also read
+`../references/limitup-linkage-framework.md` and
+`../references/high-low-switch-framework.md`.
 
 ## Required Workflow
 
 1. Check the service, data status, and `/data/quality`.
-2. Read `/strategy/mainlines`, `/strategy/rotation`, `/data/moneyflow/latest`, `/data/features/latest`, and relevant `/data/events/*` endpoints.
+2. Read `/strategy/mainlines`, `/strategy/rotation`, `/strategy/limitup-linkage`, `/strategy/high-low-switch`, `/data/moneyflow/latest`, `/data/features/latest`, and relevant `/data/events/*` endpoints.
 3. Sync or read realtime quotes if the user names specific symbols.
 4. Classify the sector within the current emotion cycle: 冰点, 启动, 发酵, 高潮, 分歧, or 退潮.
 5. Compare the target sector against current strongest and weakest sectors, not in isolation.
@@ -42,6 +46,8 @@ Try service strategy endpoints:
 ```bash
 curl -sS http://9.134.113.106:8000/strategy/mainlines
 curl -sS http://9.134.113.106:8000/strategy/catchup-candidates
+curl -sS http://9.134.113.106:8000/strategy/limitup-linkage
+curl -sS http://9.134.113.106:8000/strategy/high-low-switch
 curl -sS http://9.134.113.106:8000/strategy/rotation
 ```
 
@@ -62,6 +68,14 @@ Classify a sector using this hierarchy:
 - **Rotation hotspot**: price action is visible, but funding or breadth evidence is incomplete.
 - **Climax risk**: many stocks surge together, leaders accelerate, rear stocks are pulled rapidly, next-day consistency risk rises.
 - **Fading**: leaders break down, fund flow turns negative, rear stocks lose premium, new sector absorbs funds.
+
+Apply the linkage and high-low-switch overlays:
+
+- **Sector limit-up linkage**: same-sector limit-up count >= 3 confirms short-term force, but only one leader may be marked; all others are follower or diffusion observations.
+- **Leader-only observation**: leader symbols validate sector strength and next-day premium, not automatic buy eligibility.
+- **High-low switch**: valid only when the mainline remains recognized while high/mid-tier symbols diverge; prefer absolute low-position candidates and reject middle-tier acceleration.
+- **Middle-tier veto**: candidates with accelerated recent gains but no leader status should be rejected even if their score is high.
+- **Climax and diffusion risk**: when linkage is too broad or 20cm symbols accelerate together, mark the next session as a profit-taking observation window unless leaders hold premium.
 
 Map the classification to emotion-cycle action:
 
@@ -106,6 +120,9 @@ apply these checks before naming candidates:
 For a catch-up candidate to pass, it should have: sector purity, adequate
 liquidity, non-accelerated recent gains, leader premium confirmation, and
 relative strength versus other rear stocks in the same sector.
+For a high-low-switch candidate to pass, it should additionally avoid the
+middle tier, remain low-position, and require post-divergence confirmation
+such as weak-to-strong sealing or sustained VWAP strength.
 
 Apply Yangjia veto rules:
 
@@ -148,6 +165,11 @@ For each sector, try to gather:
 ## 证据
 
 | 维度 | 观察 | 含义 |
+|---|---|---|
+
+## 板块联动与高低切换
+
+| 信号 | 观察 | 结论 |
 |---|---|---|
 
 ## 候选方向

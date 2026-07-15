@@ -8,12 +8,14 @@ from ashare_agent.models import (
     BacktestTrade,
     CandidateTier,
     CatchupCandidate,
+    HighLowSwitchSignal,
     LeaderCandidate,
     MainlineScore,
     MarketOverview,
     RotationStatus,
     SectorSnapshot,
     SectorStage,
+    SectorLimitupLinkage,
     StockRole,
     StockSnapshot,
 )
@@ -300,6 +302,194 @@ def find_catchup_candidates(
     return sorted(actionable, key=lambda item: item.score, reverse=True)[:max_candidates]
 
 
+def analyze_limitup_linkage(
+    provider: MarketDataProvider,
+    min_sector_limitups: int = 3,
+    min_market_limitups: int = 30,
+    max_items: int = 10,
+) -> list[SectorLimitupLinkage]:
+    events = provider.get_limit_up_events()
+    if not events:
+        return []
+
+    by_sector: dict[str, list] = {}
+    for event in events:
+        by_sector.setdefault(event.sector_name or "未分类", []).append(event)
+
+    market_is_warm = len(events) >= min_market_limitups
+    results: list[SectorLimitupLinkage] = []
+    for sector_name, sector_events in by_sector.items():
+        ordered = sorted(
+            sector_events,
+            key=lambda item: (
+                -item.consecutive_boards,
+                _parse_limit_time(item.first_limit_time),
+                -item.sealed_amount,
+            ),
+        )
+        leader = ordered[0]
+        followers = [item.symbol for item in ordered[1:]]
+        limit_up_count = len(sector_events)
+        linkage_strength = clamp(limit_up_count / max(min_sector_limitups, 1) * 70)
+        leader_bonus = clamp(leader.consecutive_boards * 8 + leader.sealed_amount / 200_000_000)
+        market_bonus = 10 if market_is_warm else 0
+        score = round(clamp(linkage_strength + leader_bonus + market_bonus), 2)
+        is_linked = limit_up_count >= min_sector_limitups
+        risks: list[str] = []
+        if not market_is_warm:
+            risks.append(f"全市场涨停家数 {len(events)} 低于 {min_market_limitups}，联动可靠性下降")
+        if leader.board_open_count > 0:
+            risks.append("候选龙头存在开板，合力不够纯")
+        if limit_up_count >= 7:
+            risks.append("板块涨停过多，次日一致性兑现风险升高")
+        if not is_linked:
+            risks.append("同板块涨停数未达到联动阈值")
+
+        results.append(
+            SectorLimitupLinkage(
+                sector_name=sector_name,
+                limit_up_count=limit_up_count,
+                is_linked=is_linked,
+                leader_symbol=leader.symbol,
+                leader_name=leader.name,
+                follower_symbols=followers,
+                score=score,
+                reasons=[
+                    f"同板块涨停 {limit_up_count} 只",
+                    f"仅标一只龙头：{leader.name}({leader.symbol})",
+                    f"龙头连板数 {leader.consecutive_boards}，首次封板 {leader.first_limit_time or '未知'}",
+                ],
+                risks=risks,
+                trigger_conditions=[
+                    "次日龙头保持溢价或快速修复",
+                    "板块内跟风股不批量低开破位",
+                    "新热点没有明显分流涨停梯队",
+                ],
+                invalid_conditions=[
+                    "龙头低开低走或高开无法承接",
+                    "同板块后排无溢价并出现批量炸板",
+                    "全市场涨停家数明显萎缩",
+                ],
+                as_of=leader.timestamp,
+            )
+        )
+
+    return sorted(results, key=lambda item: item.score, reverse=True)[:max_items]
+
+
+def find_high_low_switch_signals(
+    provider: MarketDataProvider,
+    sector_names: list[str] | None = None,
+    max_candidates: int = 8,
+) -> list[HighLowSwitchSignal]:
+    mainlines = {score.sector_name: score for score in score_mainlines(provider)}
+    linked_sectors = {item.sector_name: item for item in analyze_limitup_linkage(provider, min_market_limitups=0)}
+    selected = set(sector_names or mainlines.keys())
+    stocks = provider.get_stock_snapshots()
+    if not stocks:
+        return []
+
+    signals: list[HighLowSwitchSignal] = []
+    for stock in stocks:
+        matched_sector = next((name for name in stock.sector_names if name in selected), None)
+        if matched_sector is None:
+            continue
+        mainline = mainlines.get(matched_sector)
+        if mainline and mainline.tier == "weak":
+            continue
+        if stock.limit_up or stock.recent_5d_gain > 12:
+            continue
+
+        is_low_position = stock.recent_5d_gain <= 5 and stock.pct_change <= 6
+        avoids_middle = stock.recent_5d_gain <= 12 and stock.market_cap <= 80_000_000_000
+        if not (is_low_position and avoids_middle):
+            continue
+
+        market_cap_score = clamp(100 - stock.market_cap / 800_000_000)
+        low_price_score = clamp(100 - abs(stock.price - 10) * 8) if stock.price > 0 else 45
+        low_position_score = clamp(100 - stock.recent_5d_gain * 8)
+        flow_score = (
+            clamp(stock.main_net_inflow / max(stock.amount, 1) * 700)
+            if stock.main_net_inflow > 0
+            else clamp(stock.amount / 2_000_000_000 * 45)
+        )
+        sector_score = mainline.score if mainline else 50
+        linkage_score = linked_sectors.get(matched_sector).score if matched_sector in linked_sectors else 45
+        score = round(
+            clamp(
+                0.22 * sector_score
+                + 0.20 * low_position_score
+                + 0.16 * market_cap_score
+                + 0.14 * low_price_score
+                + 0.14 * flow_score
+                + 0.14 * linkage_score
+            ),
+            2,
+        )
+        if stock.main_net_inflow <= 0:
+            score = min(score, 72)
+
+        if score >= 82:
+            tier = CandidateTier.CORE
+        elif score >= 72:
+            tier = CandidateTier.WATCH
+        elif score >= 62:
+            tier = CandidateTier.BACKUP
+        else:
+            tier = CandidateTier.REJECTED
+
+        risks: list[str] = []
+        if not mainline:
+            risks.append("板块主线评分缺失，只能作为低位观察")
+        elif mainline.stage in {SectorStage.CLIMAX, SectorStage.DIVERGENCE, SectorStage.FADING}:
+            risks.append(f"板块处于 {mainline.stage.value}，低位补涨容易被高位亏钱效应拖累")
+        if stock.main_net_inflow <= 0:
+            risks.append("缺少主力净流入确认，当前为量价热度候选")
+        if stock.price > 20 or stock.market_cap > 50_000_000_000:
+            risks.append("价格或市值不完全符合小盘低价偏好")
+
+        signals.append(
+            HighLowSwitchSignal(
+                symbol=stock.symbol,
+                name=stock.name,
+                sector_name=matched_sector,
+                score=score,
+                tier=tier,
+                role=f"{matched_sector} low-position high-low-switch candidate",
+                preconditions=[
+                    "主线或候选主线仍有资金认可",
+                    "高位/中位出现分歧时，只观察绝对低位补涨",
+                    "中位股接力和已加速后排全部回避",
+                ],
+                reasons=[
+                    f"近5日涨幅 {stock.recent_5d_gain:.1f}%，未加速",
+                    f"市值 {stock.market_cap / 100_000_000:.1f} 亿，价格 {stock.price:.2f}",
+                    f"成交额 {stock.amount / 100_000_000:.1f} 亿",
+                    (
+                        f"主力净流入 {stock.main_net_inflow / 100_000_000:.1f} 亿"
+                        if stock.main_net_inflow > 0
+                        else "主力净流入缺失或未转正"
+                    ),
+                ],
+                risks=risks,
+                trigger_conditions=[
+                    "总龙头分歧后，主线没有整体退潮",
+                    "低位标的弱转强并快速封板或持续站上 VWAP",
+                    "同板块低位梯队出现扩散而不是单票脉冲",
+                ],
+                invalid_conditions=[
+                    "总龙头 A 杀并拖累全板块",
+                    "中位股继续批量亏钱，低位无封板确认",
+                    "新主线吸走资金，原主线后排无溢价",
+                ],
+                as_of=stock.timestamp,
+            )
+        )
+
+    actionable = [item for item in signals if item.tier != CandidateTier.REJECTED]
+    return sorted(actionable, key=lambda item: item.score, reverse=True)[:max_candidates]
+
+
 def estimate_risk_penalty(stock: StockSnapshot, stage: SectorStage | None) -> float:
     penalty = 0.0
     if stock.recent_5d_gain > 15:
@@ -311,6 +501,14 @@ def estimate_risk_penalty(stock: StockSnapshot, stage: SectorStage | None) -> fl
     if stock.turnover_rate > 15:
         penalty += 10
     return clamp(penalty)
+
+
+def _parse_limit_time(value: str) -> int:
+    raw = (value or "99:99:99").replace(":", "")
+    try:
+        return int(raw)
+    except ValueError:
+        return 999999
 
 
 def score_mainlines(provider: MarketDataProvider) -> list[MainlineScore]:

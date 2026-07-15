@@ -10,12 +10,16 @@ Generate a daily research report for the A-share short-term rotation and catch-u
 Before producing the report, read `../references/yangjia-emotion-framework.md`
 and apply it to cycle classification, leader validation, catch-up filtering,
 position bias, and red-line checks.
+When the report includes limit-up diffusion, sector linkage, dragon/follower
+classification, or high-low-switch catch-up, also read
+`../references/limitup-linkage-framework.md` and
+`../references/high-low-switch-framework.md`.
 
 ## Required Workflow
 
 1. Check service health, SQLite status, and `/data/quality`.
 2. Sync current realtime quotes for user-specified symbols or watchlists when needed.
-3. Call strategy, feature, money-flow, limit-up, dragon-tiger, and rush-accumulation endpoints.
+3. Call strategy, feature, money-flow, limit-up, dragon-tiger, limit-up-linkage, high-low-switch, and rush-accumulation endpoints.
 4. Classify the current market emotion cycle: 冰点, 启动, 发酵, 高潮, 分歧, or 退潮.
 5. Separate evidence into: live/realtime, after-close, derived feature, and missing-data buckets.
 6. If sector/fund-flow, limit-up, event, or feature data is missing, mark the affected conclusion lower confidence.
@@ -50,6 +54,9 @@ Add these checks to every rotation/catch-up review:
 - **Amount-heat caveat**: when money-flow rows are missing, label candidates as
   "amount-heat candidates", not fund-flow-confirmed candidates.
 - **Position-cap check**: cap position bias by cycle phase and confidence. Missing fund-flow or only amount-heat evidence cannot support a high-confidence heavy-position conclusion.
+- **Limit-up linkage check**: same-sector limit-up count >= 3 is a sector-force signal. Mark only one leader; classify the rest as follower/diffusion observations.
+- **High-low-switch check**: after high/mid-tier divergence, only absolute low-position candidates may remain in the catch-up pool. Middle-tier acceleration is a veto.
+- **T+1 premium risk check**: broad linkage, many 20cm symbols, or fast rear acceleration means next session may be a profit-taking window.
 
 ## Commands
 
@@ -63,6 +70,8 @@ curl -sS 'http://9.134.113.106:8000/data/features/latest?limit=50'
 curl -sS 'http://9.134.113.106:8000/data/events/limit-up/latest?limit=50'
 curl -sS 'http://9.134.113.106:8000/data/events/latest?event_type=dragon_tiger&limit=50'
 curl -sS 'http://9.134.113.106:8000/data/events/latest?event_type=rush_accumulation&limit=50'
+curl -sS http://9.134.113.106:8000/strategy/limitup-linkage
+curl -sS http://9.134.113.106:8000/strategy/high-low-switch
 curl -sS http://9.134.113.106:8000/reports/daily
 ```
 
@@ -114,17 +123,27 @@ ssh yibopang@9.134.113.106 'cd /data/home/yibopang/rich && ./scripts/rich-servic
 
 说明：龙头只用于判断板块，不自动视为买入候选。
 
-## 六、补涨候选
+## 六、板块联动涨停
+
+| 板块 | 涨停数 | 唯一龙头 | 跟风/扩散 | 次日风险 |
+|---|---:|---|---|---|
+
+## 七、高低切换补涨
+
+| 股票 | 板块 | 低位证据 | 触发条件 | 放弃条件 |
+|---|---|---|---|---|
+
+## 八、补涨候选
 
 | 排名 | 股票 | 评分 | 逻辑 | 触发条件 | 放弃条件 |
 |---|---|---:|---|---|---|
 
-## 七、事件与抢筹观察
+## 九、事件与抢筹观察
 
 | 类型 | 股票/板块 | 证据 | 风险 |
 |---|---|---|---|
 
-## 八、风险标的
+## 十、风险标的
 
 - 已加速：
 - 高位兑现：
@@ -136,15 +155,17 @@ ssh yibopang@9.134.113.106 'cd /data/home/yibopang/rich && ./scripts/rich-servic
 - 板块纯度不足：
 - 新热点分流：
 - 退潮/高潮红线：
+- 中位股接力红线：
+- 联动高潮次日兑现：
 
-## 九、明日预案
+## 十一、明日预案
 
 ### 剧本 A：主线延续
 ### 剧本 B：高开分化
 ### 剧本 C：资金切换
 ### 剧本 D：高潮次日兑现
 
-## 十、数据缺口
+## 十二、数据缺口
 
 -
 ```
