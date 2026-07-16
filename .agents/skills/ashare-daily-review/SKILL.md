@@ -17,13 +17,14 @@ classification, or high-low-switch catch-up, also read
 
 ## Required Workflow
 
-1. Check service health, SQLite status, and `/data/quality`.
-2. Sync current realtime quotes for user-specified symbols or watchlists when needed.
-3. Call strategy, feature, money-flow, limit-up, dragon-tiger, limit-up-linkage, high-low-switch, and rush-accumulation endpoints.
-4. Classify the current market emotion cycle: 冰点, 启动, 发酵, 高潮, 分歧, or 退潮.
-5. Separate evidence into: live/realtime, after-close, derived feature, and missing-data buckets.
-6. If sector/fund-flow, limit-up, event, or feature data is missing, mark the affected conclusion lower confidence.
-7. Produce a fixed-format report with timestamps, sources, reasons, risks, triggers, invalidation conditions, and position bias.
+1. First refresh the fixed remote service with `POST /data/sync?provider=instock-em&trade_date=YYYY-MM-DD` using the current Asia/Shanghai trading date.
+2. Check service health, SQLite status, and `/data/quality`.
+3. Sync current realtime quotes for user-specified symbols or watchlists when needed.
+4. Call strategy, feature, money-flow, limit-up, dragon-tiger, limit-up-linkage, high-low-switch, and rush-accumulation endpoints.
+5. Classify the current market emotion cycle: 冰点, 启动, 发酵, 高潮, 分歧, or 退潮.
+6. Separate evidence into: live/realtime, after-close, derived feature, and missing-data buckets.
+7. If sector/fund-flow, limit-up, event, or feature data is missing, mark the affected conclusion lower confidence.
+8. Produce a fixed-format report with timestamps, sources, reasons, risks, triggers, invalidation conditions, and position bias.
 
 If Sina sector data is present but Eastmoney/Tushare fund-flow data is missing, classify it as “行情热度证据充分，资金流证据不足” rather than “没有数据”.
 
@@ -61,6 +62,7 @@ Add these checks to every rotation/catch-up review:
 ## Commands
 
 ```bash
+curl -sS -X POST 'http://9.134.113.106:8000/data/sync?provider=instock-em&trade_date=YYYY-MM-DD'
 curl -sS http://9.134.113.106:8000/health
 curl -sS http://9.134.113.106:8000/data/status
 curl -sS http://9.134.113.106:8000/data/quality

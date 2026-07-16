@@ -17,19 +17,21 @@ classification, or high-low catch-up switching, also read
 
 ## Required Workflow
 
-1. Check the service, data status, and `/data/quality`.
-2. Read `/strategy/mainlines`, `/strategy/rotation`, `/strategy/limitup-linkage`, `/strategy/high-low-switch`, `/data/moneyflow/latest`, `/data/features/latest`, and relevant `/data/events/*` endpoints.
-3. Sync or read realtime quotes if the user names specific symbols.
-4. Classify the sector within the current emotion cycle: 冰点, 启动, 发酵, 高潮, 分歧, or 退潮.
-5. Compare the target sector against current strongest and weakest sectors, not in isolation.
-6. If money-flow, limit-up, feature, or event data is missing/stale, clearly downgrade confidence.
-7. Output conclusion, evidence, trigger conditions, invalidation conditions, position bias, and data gaps.
+1. First refresh the fixed remote service with `POST /data/sync?provider=instock-em&trade_date=YYYY-MM-DD` using the current Asia/Shanghai trading date.
+2. Check the service, data status, and `/data/quality`.
+3. Read `/strategy/mainlines`, `/strategy/rotation`, `/strategy/limitup-linkage`, `/strategy/high-low-switch`, `/data/moneyflow/latest`, `/data/features/latest`, and relevant `/data/events/*` endpoints.
+4. Sync or read realtime quotes if the user names specific symbols.
+5. Classify the sector within the current emotion cycle: 冰点, 启动, 发酵, 高潮, 分歧, or 退潮.
+6. Compare the target sector against current strongest and weakest sectors, not in isolation.
+7. If money-flow, limit-up, feature, or event data is missing/stale, clearly downgrade confidence.
+8. Output conclusion, evidence, trigger conditions, invalidation conditions, position bias, and data gaps.
 
 ## Commands
 
 Check data:
 
 ```bash
+curl -sS -X POST 'http://9.134.113.106:8000/data/sync?provider=instock-em&trade_date=YYYY-MM-DD'
 curl -sS http://9.134.113.106:8000/health
 curl -sS http://9.134.113.106:8000/data/status
 curl -sS http://9.134.113.106:8000/data/quality

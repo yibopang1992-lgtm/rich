@@ -36,6 +36,18 @@ live in `ashare-daily-review`, `ashare-sector-review`, and
 
 ## Common Commands
 
+Refresh Eastmoney money flow through the fixed remote API before analysis:
+
+```bash
+curl -sS -X POST 'http://9.134.113.106:8000/data/sync?provider=instock-em&trade_date=YYYY-MM-DD'
+curl -sS 'http://9.134.113.106:8000/data/quality'
+```
+
+Use `instock-em` when the goal is "refresh current Eastmoney data". It refreshes
+individual money flow, sector fund flow, and derived features. The read-only
+endpoints such as `/data/moneyflow/latest` do not fetch new data; they only read
+the latest rows already stored in SQLite.
+
 Check service:
 
 ```bash
@@ -70,6 +82,12 @@ Sync InStock-compatible Eastmoney fund-flow:
 
 ```bash
 ssh yibopang@9.134.113.106 'cd /data/home/yibopang/rich && ./scripts/rich-service.sh sync --provider instock-em --trade-date YYYY-MM-DD'
+```
+
+Equivalent remote API call:
+
+```bash
+curl -sS -X POST 'http://9.134.113.106:8000/data/sync?provider=instock-em&trade_date=YYYY-MM-DD'
 ```
 
 If Eastmoney blocks the server, put `EASTMONEY_COOKIE` and/or `EASTMONEY_PROXY` in `/data/home/yibopang/rich/.env`.
