@@ -31,11 +31,13 @@ def normalize_signed(value: float, scale: float) -> float:
 
 def score_sector(sector: SectorSnapshot) -> MainlineScore:
     has_fund_flow = sector.main_net_inflow != 0
+    has_breadth = sector.up_count + sector.down_count > 0
+    has_ladder = sector.limit_up_count > 0 or sector.new_high_count > 0 or sector.continuity_days > 0
     fund_flow_strength = normalize_signed(sector.main_net_inflow, 12_000_000_000)
     amount_growth = clamp(sector.amount_growth * 100)
     sector_return = normalize_signed(sector.pct_change, 8)
     limit_up_ladder = clamp(sector.limit_up_count * 12 + sector.new_high_count * 2)
-    breadth = clamp(sector.breadth * 100)
+    breadth = clamp(sector.breadth * 100) if has_breadth else 50
     leader_strength = clamp(35 + sector.limit_up_count * 7 + sector.continuity_days * 6)
     continuity = clamp(sector.continuity_days * 25)
     catalyst_strength = sector.catalyst_strength
@@ -58,6 +60,12 @@ def score_sector(sector: SectorSnapshot) -> MainlineScore:
         heat_score = 0.45 * sector_return + 0.35 * liquidity + 0.20 * breadth
         score = min(max(score, heat_score), 79)
 
+    if has_fund_flow and sector.amount == 0 and not has_ladder:
+        # Eastmoney/InStock fund-flow rankings do not include breadth or ladder
+        # fields. Treat them as fund-flow heat, not a full ladder-confirmed mainline.
+        flow_heat_score = 0.58 * fund_flow_strength + 0.34 * sector_return + 0.08 * leader_strength
+        score = min(max(score, flow_heat_score), 79)
+
     score = round(clamp(score), 2)
 
     if score >= 80:
@@ -79,7 +87,7 @@ def score_sector(sector: SectorSnapshot) -> MainlineScore:
             if has_fund_flow
             else "net inflow unavailable"
         ),
-        f"breadth {sector.breadth:.1%}",
+        f"breadth {sector.breadth:.1%}" if has_breadth else "breadth unavailable",
         f"{sector.limit_up_count} limit-up symbols",
     ]
     risks: list[str] = []
@@ -91,6 +99,10 @@ def score_sector(sector: SectorSnapshot) -> MainlineScore:
         risks.append("tail support is weak")
     if not has_fund_flow and sector.amount > 0:
         risks.append("fund-flow data is unavailable; score uses price/amount heat")
+    if has_fund_flow and not has_breadth:
+        risks.append("breadth data is unavailable; score uses fund-flow/return heat")
+    if has_fund_flow and not has_ladder:
+        risks.append("limit-up ladder is unavailable in sector fund-flow rows")
 
     return MainlineScore(
         sector_name=sector.sector_name,
@@ -104,9 +116,21 @@ def score_sector(sector: SectorSnapshot) -> MainlineScore:
 
 
 def classify_stage(sector: SectorSnapshot) -> SectorStage:
-    if sector.main_net_inflow < 0 and sector.limit_up_count <= 1 and sector.breadth < 0.4:
+    has_breadth = sector.up_count + sector.down_count > 0
+    has_ladder = sector.limit_up_count > 0 or sector.new_high_count > 0 or sector.continuity_days > 0
+    if not has_ladder:
+        if sector.main_net_inflow < 0 and sector.pct_change < 0:
+            return SectorStage.FADING
+        if sector.main_net_inflow > 0 and (sector.pct_change >= 3 or sector.main_net_inflow >= 500_000_000):
+            return SectorStage.FERMENTING
+        if sector.main_net_inflow > 0 and sector.pct_change > 0:
+            return SectorStage.STARTING
+        if sector.main_net_inflow < 0 and sector.pct_change <= 0:
+            return SectorStage.FADING
+        return SectorStage.STARTING
+    if has_breadth and sector.main_net_inflow < 0 and sector.limit_up_count <= 1 and sector.breadth < 0.4:
         return SectorStage.FADING
-    if sector.board_open_rate >= 0.4 or (
+    if sector.board_open_rate >= 0.4 or (has_breadth and
         sector.pct_change < 0 and sector.limit_up_count > 0 and sector.breadth < 0.5
     ):
         return SectorStage.DIVERGENCE
@@ -314,7 +338,10 @@ def analyze_limitup_linkage(
 
     by_sector: dict[str, list] = {}
     for event in events:
-        by_sector.setdefault(event.sector_name or "未分类", []).append(event)
+        sector_name = event.sector_name or "未分类"
+        if not is_pure_strategy_sector_name(sector_name):
+            continue
+        by_sector.setdefault(sector_name, []).append(event)
 
     market_is_warm = len(events) >= min_market_limitups
     results: list[SectorLimitupLinkage] = []
@@ -513,10 +540,68 @@ def _parse_limit_time(value: str) -> int:
 
 def score_mainlines(provider: MarketDataProvider) -> list[MainlineScore]:
     return sorted(
-        [score_sector(sector) for sector in provider.get_sector_snapshots()],
+        [score_sector(sector) for sector in provider.get_sector_snapshots() if is_pure_strategy_sector_name(sector.sector_name)],
         key=lambda item: item.score,
         reverse=True,
     )
+
+
+def is_pure_strategy_sector_name(name: str) -> bool:
+    text = (name or "").strip()
+    if not text:
+        return False
+    noisy_keywords = [
+        "昨日",
+        "今日",
+        "近期",
+        "首板",
+        "连板",
+        "打板",
+        "炸板",
+        "涨停",
+        "触板",
+        "龙虎榜",
+        "融资融券",
+        "沪股通",
+        "深股通",
+        "含一字",
+        "高送转",
+        "预盈预增",
+        "一季报",
+        "三季报",
+        "中报",
+        "年报",
+        "扭亏",
+        "预减",
+        "预降",
+        "预升",
+        "破净",
+        "破发",
+        "破增发",
+        "红利",
+        "价值股",
+        "超跌",
+        "微盘",
+        "微利",
+        "B股",
+        "AB股",
+        "含H股",
+        "含GDR",
+        "风格",
+        "大盘",
+        "中盘",
+        "小盘",
+        "权重",
+        "周期股",
+        "趋势股",
+        "题材股",
+        "行业龙头",
+        "历史新高",
+        "百日新高",
+        "最近多板",
+        "东方财富热股",
+    ]
+    return not any(keyword in text for keyword in noisy_keywords)
 
 
 def get_rotation_status(provider: MarketDataProvider) -> RotationStatus:

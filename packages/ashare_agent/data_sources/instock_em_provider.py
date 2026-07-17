@@ -23,7 +23,7 @@ CN_TZ = ZoneInfo("Asia/Shanghai")
 class EastmoneySession:
     """Small Eastmoney client adapted from InStock without its DB/Web/trade stack."""
 
-    def __init__(self) -> None:
+    def __init__(self, include_cookie: bool = True) -> None:
         self.session = requests.Session()
         retry_strategy = Retry(
             total=3,
@@ -47,8 +47,10 @@ class EastmoneySession:
             }
         )
         cookie = os.environ.get("EASTMONEY_COOKIE", "").strip()
-        if cookie:
+        if include_cookie and cookie:
             self.session.headers["Cookie"] = cookie
+        if not include_cookie:
+            self.session.headers["Connection"] = "close"
 
     def proxies(self) -> dict[str, str] | None:
         proxy = os.environ.get("EASTMONEY_PROXY", "").strip()
@@ -67,29 +69,64 @@ def fetch_pages(
     params: dict[str, Any],
     page_size: int = 50,
     callback_jsonp: bool = False,
+    include_cookie: bool = True,
 ) -> list[dict[str, Any]]:
-    client = EastmoneySession()
+    urls = eastmoney_endpoint_candidates(url)
+    request_page_size = min(page_size, 100)
     page_current = 1
-    params = {**params, "pn": page_current, "pz": page_size}
-    response = client.get(url, params=params)
-    payload = parse_eastmoney_payload(response.text, callback_jsonp=callback_jsonp)
+    payload = fetch_page_payload(urls, params, page_current, request_page_size, callback_jsonp, include_cookie)
     data = (payload.get("data") or {}).get("diff") or []
     total = int((payload.get("data") or {}).get("total") or len(data))
-    page_count = math.ceil(total / page_size)
+    page_count = math.ceil(total / request_page_size)
 
     while page_current < page_count:
         time.sleep(random.uniform(0.6, 1.2))
         page_current += 1
-        params["pn"] = page_current
-        try:
-            response = client.get(url, params=params)
-            payload = parse_eastmoney_payload(response.text, callback_jsonp=callback_jsonp)
-            data.extend((payload.get("data") or {}).get("diff") or [])
-        except requests.exceptions.RequestException:
-            if data:
-                break
-            raise
+        payload = fetch_page_payload(urls, params, page_current, request_page_size, callback_jsonp, include_cookie)
+        data.extend((payload.get("data") or {}).get("diff") or [])
     return data
+
+
+def fetch_page_payload(
+    urls: list[str],
+    params: dict[str, Any],
+    page: int,
+    page_size: int,
+    callback_jsonp: bool,
+    include_cookie: bool,
+) -> dict[str, Any]:
+    last_error: Exception | None = None
+    page_params = {**params, "pn": page, "pz": page_size}
+    for attempt in range(3):
+        for candidate_url in urls:
+            try:
+                client = EastmoneySession(include_cookie=include_cookie)
+                response = client.get(candidate_url, params=page_params)
+                return parse_eastmoney_payload(response.text, callback_jsonp=callback_jsonp)
+            except requests.exceptions.RequestException as exc:
+                last_error = exc
+        if attempt < 2:
+            time.sleep(random.uniform(1.0, 2.0))
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Eastmoney page request failed without an exception")
+
+
+def eastmoney_endpoint_candidates(url: str) -> list[str]:
+    if "push2.eastmoney.com/api/qt/clist/get" not in url:
+        return [url]
+    candidates = [
+        url,
+        "http://push2.eastmoney.com/api/qt/clist/get",
+        "http://80.push2.eastmoney.com/api/qt/clist/get",
+        "http://82.push2.eastmoney.com/api/qt/clist/get",
+        "https://push2.eastmoney.com/api/qt/clist/get",
+    ]
+    unique: list[str] = []
+    for candidate in candidates:
+        if candidate not in unique:
+            unique.append(candidate)
+    return unique
 
 
 def parse_eastmoney_payload(text: str, callback_jsonp: bool = False) -> dict[str, Any]:
@@ -125,7 +162,7 @@ def fetch_instock_stock_moneyflow(trade_date: date | None = None, indicator: str
         raise ValueError(f"unsupported Eastmoney stock money-flow indicator: {indicator}")
 
     rows = fetch_pages(
-        "https://push2.eastmoney.com/api/qt/clist/get",
+        "http://push2.eastmoney.com/api/qt/clist/get",
         {
             "fid": indicator_map[indicator][0],
             "po": "1",
@@ -136,8 +173,9 @@ def fetch_instock_stock_moneyflow(trade_date: date | None = None, indicator: str
             "fs": "m:0+t:6+f:!2,m:0+t:13+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2,m:0+t:7+f:!2,m:1+t:3+f:!2",
             "fields": indicator_map[indicator][1],
         },
+        page_size=6000,
+        include_cookie=False,
     )
-    timestamp = datetime.combine(trade_date or datetime.now(CN_TZ).date(), dt_time(15, 30), tzinfo=CN_TZ)
     snapshots: list[StockSnapshot] = []
     for row in rows:
         price = to_float(row.get("f2"))
@@ -145,6 +183,7 @@ def fetch_instock_stock_moneyflow(trade_date: date | None = None, indicator: str
             continue
         symbol = normalize_symbol(row.get("f12"))
         main_net, main_rate, large_net = stock_flow_fields(row, indicator)
+        timestamp = eastmoney_row_timestamp(row, trade_date)
         snapshots.append(
             StockSnapshot(
                 symbol=symbol,
@@ -205,7 +244,7 @@ def fetch_instock_sector_fund_flow(
         raise ValueError(f"unsupported Eastmoney sector money-flow indicator: {indicator}")
 
     rows = fetch_pages(
-        "https://push2.eastmoney.com/api/qt/clist/get",
+        "http://80.push2.eastmoney.com/api/qt/clist/get",
         {
             "po": "1",
             "np": "1",
@@ -216,13 +255,10 @@ def fetch_instock_sector_fund_flow(
             "fs": f"m:90 t:{sector_type_map[sector_type]}",
             "stat": indicator_map[indicator][1],
             "fields": indicator_map[indicator][2],
-            "rt": "52975239",
-            "cb": "jQuery18308357908311220152_1589256588824",
-            "_": int(time.time() * 1000),
         },
-        callback_jsonp=True,
+        page_size=500,
+        include_cookie=False,
     )
-    timestamp = datetime.combine(trade_date or datetime.now(CN_TZ).date(), dt_time(15, 30), tzinfo=CN_TZ)
     snapshots: list[SectorSnapshot] = []
     for row in rows:
         name = str(row.get("f14") or "")
@@ -231,6 +267,7 @@ def fetch_instock_sector_fund_flow(
         main_net, _main_rate, _large_net = stock_flow_fields(row, indicator)
         leader_code = row.get("f205") or row.get("f258") or row.get("f261")
         top_symbols = [normalize_symbol(leader_code)] if leader_code else []
+        timestamp = eastmoney_row_timestamp(row, trade_date)
         snapshots.append(
             SectorSnapshot(
                 sector_id=f"instock_em_{sector_type.value}_{name}",
@@ -246,7 +283,7 @@ def fetch_instock_sector_fund_flow(
                 limit_up_count=0,
                 limit_down_count=0,
                 new_high_count=0,
-                breadth=0.5,
+                breadth=0,
                 top_symbols=top_symbols,
                 continuity_days=0,
                 catalyst_strength=0,
@@ -262,3 +299,18 @@ def fetch_instock_all_sector_fund_flow(trade_date: date | None = None, indicator
     sectors.extend(fetch_instock_sector_fund_flow(trade_date, SectorType.INDUSTRY, indicator))
     sectors.extend(fetch_instock_sector_fund_flow(trade_date, SectorType.CONCEPT, indicator))
     return sectors
+
+
+def eastmoney_row_timestamp(row: dict[str, Any], trade_date: date | None = None) -> datetime:
+    now = datetime.now(CN_TZ)
+    raw_timestamp = to_float(row.get("f124"))
+    if raw_timestamp > 0:
+        source_timestamp = datetime.fromtimestamp(raw_timestamp, tz=CN_TZ)
+        selected_date = trade_date or now.date()
+        if selected_date == now.date() and source_timestamp > now:
+            return now
+        return source_timestamp
+    selected_date = trade_date or now.date()
+    if selected_date == now.date():
+        return now
+    return datetime.combine(selected_date, dt_time(15, 30), tzinfo=CN_TZ)

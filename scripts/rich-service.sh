@@ -53,6 +53,33 @@ is_running() {
   [[ -n "${pid}" ]] && kill -0 "${pid}" >/dev/null 2>&1
 }
 
+app_pids_on_port() {
+  command -v lsof >/dev/null 2>&1 || return 0
+  local pid command_line
+  while IFS= read -r pid; do
+    [[ -n "${pid}" ]] || continue
+    command_line="$(ps -p "${pid}" -o args= 2>/dev/null || true)"
+    if [[ "${command_line}" == *"${APP_MODULE}"* ]]; then
+      echo "${pid}"
+    fi
+  done < <(lsof -tiTCP:"${PORT}" -sTCP:LISTEN 2>/dev/null || true)
+}
+
+stop_orphaned_app_processes() {
+  local pids
+  mapfile -t pids < <(app_pids_on_port)
+  [[ "${#pids[@]}" -gt 0 ]] || return 0
+
+  echo "Stopping orphaned ${APP_NAME} process(es) on ${HOST}:${PORT}: ${pids[*]}"
+  kill "${pids[@]}" >/dev/null 2>&1 || true
+  sleep 1
+  mapfile -t pids < <(app_pids_on_port)
+  if [[ "${#pids[@]}" -gt 0 ]]; then
+    echo "Force stopping orphaned ${APP_NAME} process(es): ${pids[*]}"
+    kill -9 "${pids[@]}" >/dev/null 2>&1 || true
+  fi
+}
+
 ensure_venv() {
   if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
     "$(python_bin)" -m venv "${VENV_DIR}"
@@ -68,6 +95,7 @@ start() {
     echo "${APP_NAME} is already running: pid $(cat "${PID_FILE}")"
     return 0
   fi
+  stop_orphaned_app_processes
 
   ensure_venv
   echo "Starting ${APP_NAME} on ${HOST}:${PORT}"

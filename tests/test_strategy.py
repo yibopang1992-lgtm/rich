@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ashare_agent.data_sources.mock import MockMarketDataProvider
 from ashare_agent.models import LimitUpEvent
-from ashare_agent.models import CandidateTier, SectorStage
+from ashare_agent.models import CandidateTier, SectorSnapshot, SectorStage, SectorType
 from ashare_agent.reports import render_markdown_report
 from ashare_agent.strategy.scoring import (
     analyze_limitup_linkage,
@@ -11,6 +11,7 @@ from ashare_agent.strategy.scoring import (
     get_market_overview,
     run_mock_backtest,
     score_mainlines,
+    score_sector,
 )
 
 
@@ -57,6 +58,51 @@ def test_catchup_candidates_fallback_to_amount_heat_without_money_flow() -> None
     assert candidates[0].score <= 78
     assert "main inflow unavailable" in candidates[0].reasons
     assert any("amount heat" in risk for risk in candidates[0].risks)
+
+
+def test_fundflow_only_sector_does_not_fake_breadth_and_can_ferment() -> None:
+    sector = SectorSnapshot(
+        sector_id="instock_em_industry_power",
+        sector_name="电力",
+        sector_type=SectorType.INDUSTRY,
+        timestamp=MockMarketDataProvider().as_of,
+        pct_change=3.2,
+        main_net_inflow=900_000_000,
+        amount=0,
+        amount_growth=0,
+        up_count=0,
+        down_count=0,
+        limit_up_count=0,
+        breadth=0,
+    )
+
+    score = score_sector(sector)
+
+    assert score.stage == SectorStage.FERMENTING
+    assert "breadth unavailable" in score.reasons
+    assert any("breadth data is unavailable" in risk for risk in score.risks)
+
+
+def test_mainlines_filter_non_pure_eastmoney_boards() -> None:
+    class NoisySectorProvider(MockMarketDataProvider):
+        def get_sector_snapshots(self):
+            noisy = super().get_sector_snapshots()[0].model_copy(
+                update={
+                    "sector_name": "昨日打二板以上表现",
+                    "pct_change": 12.0,
+                    "main_net_inflow": 2_000_000_000,
+                }
+            )
+            factor = noisy.model_copy(update={"sector_name": "2026一季报预减"})
+            style = noisy.model_copy(update={"sector_name": "红利破净股"})
+            return [noisy, factor, style, *super().get_sector_snapshots()]
+
+    scores = score_mainlines(NoisySectorProvider())
+
+    names = {item.sector_name for item in scores}
+    assert "昨日打二板以上表现" not in names
+    assert "2026一季报预减" not in names
+    assert "红利破净股" not in names
 
 
 def test_limitup_linkage_requires_three_same_sector_limitups_and_marks_one_leader() -> None:
