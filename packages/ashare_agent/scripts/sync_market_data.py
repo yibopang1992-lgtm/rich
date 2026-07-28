@@ -58,6 +58,8 @@ def sync_market_data(
     rush_event_rows = 0
     sectors = []
     akshare_sectors_loaded = False
+    should_refresh_events = provider in {"auto", "akshare-events", "limit-up-events", "dragon-tiger", "instock-em", "full"}
+    should_refresh_memberships = provider in {"auto", "akshare", "sector-membership", "full"}
 
     if provider in {"auto", "akshare"}:
         try:
@@ -116,21 +118,23 @@ def sync_market_data(
         except Exception as exc:
             errors.append(f"tushare stock moneyflow failed: {type(exc).__name__}: {exc}")
 
-    if provider in {"instock-em", "instock-em-sector"}:
+    if provider in {"instock-em", "instock-em-sector", "full"}:
         try:
             sectors = fetch_instock_all_sector_fund_flow(selected_date)
             sector_rows = store.save_sector_snapshots(sectors, source="instock_eastmoney_sector_moneyflow")
         except Exception as exc:
             errors.append(f"instock eastmoney sector fund-flow failed: {type(exc).__name__}: {exc}")
 
-    if provider in {"instock-em", "instock-em-stock"}:
+    if provider in {"instock-em", "instock-em-stock", "full"}:
         try:
             moneyflow = fetch_instock_stock_moneyflow(selected_date)
             moneyflow_rows = store.save_stock_moneyflow(moneyflow, source="instock_eastmoney_stock_moneyflow")
+            stock_rows = store.save_stock_snapshots(moneyflow, source="instock_eastmoney_stock_quote")
+            realtime_rows = store.save_realtime_quotes(moneyflow, source="instock_eastmoney_stock_quote")
         except Exception as exc:
             errors.append(f"instock eastmoney stock moneyflow failed: {type(exc).__name__}: {exc}")
 
-    if provider in {"auto", "akshare-events", "limit-up-events"}:
+    if should_refresh_events and provider != "dragon-tiger":
         try:
             limit_events, reason_events = fetch_limit_up_events(selected_date)
             limit_up_rows = store.save_limit_up_events(limit_events, source="akshare_stock_zt_pool_em")
@@ -139,7 +143,7 @@ def sync_market_data(
         except Exception as exc:
             errors.append(f"limit-up events failed: {type(exc).__name__}: {exc}")
 
-    if provider in {"auto", "akshare-events", "dragon-tiger"}:
+    if should_refresh_events and provider != "limit-up-events":
         try:
             dragon_tiger_events = fetch_dragon_tiger_events(selected_date)
             store.delete_news_events(selected_date.isoformat(), "dragon_tiger")
@@ -147,14 +151,7 @@ def sync_market_data(
         except Exception as exc:
             errors.append(f"dragon tiger events failed: {type(exc).__name__}: {exc}")
 
-    if sectors and akshare_sectors_loaded:
-        try:
-            memberships = fetch_sector_memberships(sectors, per_type_limit=membership_limit)
-            membership_rows += store.save_sector_memberships(as_of, memberships)
-        except Exception as exc:
-            errors.append(f"sector memberships failed: {type(exc).__name__}: {exc}")
-
-    if provider in {"auto", "derived-features", "instock-em", "instock-em-stock"}:
+    if provider in {"auto", "derived-features", "instock-em", "instock-em-stock", "full"}:
         try:
             stock_inputs = (
                 store.load_stock_snapshots_by_trade_date(selected_date.isoformat())
@@ -176,6 +173,19 @@ def sync_market_data(
             news_event_rows += rush_event_rows
         except Exception as exc:
             errors.append(f"derived stock features failed: {type(exc).__name__}: {exc}")
+
+    if should_refresh_memberships and not sectors:
+        try:
+            sectors = store.load_latest_sector_snapshots()
+        except Exception as exc:
+            errors.append(f"load sectors for membership failed: {type(exc).__name__}: {exc}")
+
+    if sectors and (akshare_sectors_loaded or should_refresh_memberships):
+        try:
+            memberships = fetch_sector_memberships(sectors, per_type_limit=membership_limit)
+            membership_rows += store.save_sector_memberships(as_of, memberships)
+        except Exception as exc:
+            errors.append(f"sector memberships failed: {type(exc).__name__}: {exc}")
 
     return {
         "as_of": as_of.isoformat(),
@@ -212,10 +222,12 @@ def main() -> None:
             "instock-em",
             "instock-em-sector",
             "instock-em-stock",
+            "sector-membership",
             "akshare-events",
             "limit-up-events",
             "dragon-tiger",
             "derived-features",
+            "full",
         ],
         default="auto",
         help="Data provider. auto tries AKShare/Eastmoney, Baostock daily bars, then Sina realtime if symbols exist.",

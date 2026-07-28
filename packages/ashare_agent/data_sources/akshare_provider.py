@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import math
+import os
+import re
 from datetime import date, datetime, time
 from typing import Any
 from zoneinfo import ZoneInfo
+
+import requests
 
 from ashare_agent.models import LimitUpEvent, NewsEvent, SectorSnapshot, SectorType, StockSnapshot
 
@@ -337,11 +341,18 @@ def fetch_eastmoney_sector_rows(sector_type: SectorType) -> list[dict[str, Any]]
 
 
 def eastmoney_headers() -> dict[str, str]:
-    return {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json,text/plain,*/*",
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json,text/javascript,*/*;q=0.01",
         "Referer": "https://quote.eastmoney.com/center/gridlist.html",
     }
+    cookie = os.environ.get("EASTMONEY_COOKIE", "").strip()
+    if cookie:
+        headers["Cookie"] = cookie
+    return headers
 
 
 def fetch_sector_memberships(
@@ -357,6 +368,13 @@ def fetch_sector_memberships(
     for sector in sorted_sectors:
         if counts[sector.sector_type] >= per_type_limit:
             continue
+        board_code = extract_eastmoney_board_code(sector)
+        if board_code:
+            rows = fetch_eastmoney_sector_memberships(sector, board_code)
+            if rows:
+                memberships.extend(rows)
+                counts[sector.sector_type] += 1
+                continue
         try:
             if sector.sector_type == SectorType.CONCEPT:
                 df = ak.stock_board_concept_cons_em(symbol=sector.sector_name)
@@ -378,3 +396,53 @@ def fetch_sector_memberships(
                 }
             )
     return memberships
+
+
+def extract_eastmoney_board_code(sector: SectorSnapshot) -> str | None:
+    match = re.search(r"(BK\d+)", sector.sector_id)
+    return match.group(1) if match else None
+
+
+def fetch_eastmoney_sector_memberships(sector: SectorSnapshot, board_code: str) -> list[dict[str, str]]:
+    params = {
+        "pn": "1",
+        "pz": "100",
+        "po": "1",
+        "np": "1",
+        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        "fltt": "2",
+        "invt": "2",
+        "fid": "f3",
+        "fs": f"b:{board_code} f:!50",
+        "fields": "f12,f14",
+    }
+    rows: list[dict[str, Any]] = []
+    page = 1
+    total = 0
+    while page <= 20:
+        page_params = {**params, "pn": str(page)}
+        response = requests.get(
+            "https://push2.eastmoney.com/weblogin/api/qt/clist/get",
+            params=page_params,
+            headers=eastmoney_headers(),
+            timeout=12,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        data = payload.get("data") or {}
+        page_rows = data.get("diff") or []
+        total = int(data.get("total") or total or len(page_rows))
+        rows.extend(page_rows)
+        if len(rows) >= total or not page_rows:
+            break
+        page += 1
+    return [
+        {
+            "sector_name": sector.sector_name,
+            "sector_type": sector.sector_type.value,
+            "symbol": normalize_symbol(row.get("f12")),
+            "name": str(row.get("f14") or ""),
+        }
+        for row in rows
+        if row.get("f12")
+    ]

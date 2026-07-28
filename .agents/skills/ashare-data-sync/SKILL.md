@@ -22,10 +22,12 @@ live in `ashare-daily-review`, `ashare-sector-review`, and
 
 ## Data Source Rules
 
-- Prefer `instock-em` for the current validated free money-flow path. It uses public Eastmoney pages plus `EASTMONEY_COOKIE` / optional `EASTMONEY_PROXY`.
+- Prefer `instock-em` for the current validated free fast-refresh path. It uses Eastmoney browser-compatible `weblogin` JSON endpoints plus `EASTMONEY_COOKIE` / optional `EASTMONEY_PROXY`.
 - Prefer `sina` for realtime individual stock quotes.
 - Prefer `baostock` for real daily bars and historical stock snapshots.
-- Use `akshare-events`, `limit-up-events`, or `dragon-tiger` for real AKShare/Eastmoney event sync.
+- `instock-em` now refreshes stock money flow, stock/realtime snapshots with amount/turnover, sector fund flow, limit-up events, dragon-tiger events, and derived features.
+- Use `sector-membership` separately when board constituents are needed. It prefers Eastmoney BK-code direct fetches and falls back to AKShare; run `derived-features` afterwards if refreshed constituents should appear in feature rows.
+- Use `akshare-events`, `limit-up-events`, or `dragon-tiger` for event-only refreshes.
 - Use `derived-features` after quote and money-flow sync to build amount/turnover/fund-flow/rush-accumulation features.
 - `auto` may try multiple public sources and can be slower or noisier; for controlled validation run provider-specific syncs.
 - Use `tushare`, `tushare-sector`, or `tushare-stock` only when `TUSHARE_TOKEN` is configured in the server environment or `/data/home/yibopang/rich/.env`.
@@ -44,9 +46,10 @@ curl -sS 'http://9.134.113.106:8000/data/quality'
 ```
 
 Use `instock-em` when the goal is "refresh current Eastmoney data". It refreshes
-individual money flow, sector fund flow, and derived features. The read-only
-endpoints such as `/data/moneyflow/latest` do not fetch new data; they only read
-the latest rows already stored in SQLite.
+individual money flow, stock/realtime snapshots with amount/turnover, sector
+fund flow, limit-up events, dragon-tiger events, and derived features. The
+read-only endpoints such as `/data/moneyflow/latest` do not fetch new data; they
+only read the latest rows already stored in SQLite.
 
 Check service:
 
@@ -97,6 +100,13 @@ Sync events and derived features:
 ```bash
 ssh yibopang@9.134.113.106 'cd /data/home/yibopang/rich && ./scripts/rich-service.sh sync --provider akshare-events --trade-date YYYY-MM-DD'
 ssh yibopang@9.134.113.106 'cd /data/home/yibopang/rich && ./scripts/rich-service.sh sync --provider derived-features --trade-date YYYY-MM-DD'
+```
+
+Sync active board membership, then rebuild features with sector names:
+
+```bash
+curl -sS -X POST 'http://9.134.113.106:8000/data/sync?provider=sector-membership&trade_date=YYYY-MM-DD&membership_limit=6'
+curl -sS -X POST 'http://9.134.113.106:8000/data/sync?provider=derived-features&trade_date=YYYY-MM-DD'
 ```
 
 View latest realtime quotes:

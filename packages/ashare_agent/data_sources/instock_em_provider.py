@@ -37,11 +37,11 @@ class EastmoneySession:
         self.session.headers.update(
             {
                 "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36"
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
                 ),
-                "Referer": "https://data.eastmoney.com/",
-                "Accept": "application/json,text/plain,*/*",
+                "Referer": "https://quote.eastmoney.com/center/gridlist.html#hs_a_board",
+                "Accept": "application/json,text/javascript,*/*;q=0.01",
                 "Accept-Language": "zh-CN,zh;q=0.9",
                 "Connection": "keep-alive",
             }
@@ -116,6 +116,7 @@ def eastmoney_endpoint_candidates(url: str) -> list[str]:
     if "push2.eastmoney.com/api/qt/clist/get" not in url:
         return [url]
     candidates = [
+        "https://push2.eastmoney.com/weblogin/api/qt/clist/get",
         url,
         "http://push2.eastmoney.com/api/qt/clist/get",
         "http://80.push2.eastmoney.com/api/qt/clist/get",
@@ -143,7 +144,10 @@ def fetch_instock_stock_moneyflow(trade_date: date | None = None, indicator: str
     indicator_map = {
         "今日": [
             "f62",
-            "f12,f14,f2,f3,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87,f204,f205,f124",
+            (
+                "f12,f14,f2,f3,f4,f5,f6,f7,f8,f15,f16,f17,f18,f20,"
+                "f62,f184,f66,f69,f72,f75,f78,f81,f84,f87,f204,f205,f124"
+            ),
         ],
         "3日": [
             "f267",
@@ -174,7 +178,7 @@ def fetch_instock_stock_moneyflow(trade_date: date | None = None, indicator: str
             "fields": indicator_map[indicator][1],
         },
         page_size=6000,
-        include_cookie=False,
+        include_cookie=True,
     )
     snapshots: list[StockSnapshot] = []
     for row in rows:
@@ -191,17 +195,17 @@ def fetch_instock_stock_moneyflow(trade_date: date | None = None, indicator: str
                 timestamp=timestamp,
                 price=price,
                 pct_change=to_float(row.get("f3") or row.get("f127") or row.get("f109") or row.get("f160")),
-                open=0,
-                high=0,
-                low=0,
-                prev_close=0,
-                volume=0,
-                amount=0,
-                turnover_rate=0,
+                open=to_float(row.get("f17")),
+                high=to_float(row.get("f15")),
+                low=to_float(row.get("f16")),
+                prev_close=to_float(row.get("f18")),
+                volume=to_float(row.get("f5")),
+                amount=to_float(row.get("f6")),
+                turnover_rate=to_float(row.get("f8")),
                 main_net_inflow=main_net,
                 large_order_net_inflow=large_net,
                 super_large_order_net_inflow=to_float(row.get("f66")),
-                market_cap=0,
+                market_cap=to_float(row.get("f20")),
             )
         )
     return snapshots
@@ -257,20 +261,21 @@ def fetch_instock_sector_fund_flow(
             "fields": indicator_map[indicator][2],
         },
         page_size=500,
-        include_cookie=False,
+        include_cookie=True,
     )
     snapshots: list[SectorSnapshot] = []
     for row in rows:
         name = str(row.get("f14") or "")
         if not name or row.get("f2") == "-":
             continue
+        board_code = str(row.get("f12") or name)
         main_net, _main_rate, _large_net = stock_flow_fields(row, indicator)
         leader_code = row.get("f205") or row.get("f258") or row.get("f261")
         top_symbols = [normalize_symbol(leader_code)] if leader_code else []
         timestamp = eastmoney_row_timestamp(row, trade_date)
         snapshots.append(
             SectorSnapshot(
-                sector_id=f"instock_em_{sector_type.value}_{name}",
+                sector_id=f"instock_em_{sector_type.value}_{board_code}",
                 sector_name=name,
                 sector_type=sector_type,
                 timestamp=timestamp,
