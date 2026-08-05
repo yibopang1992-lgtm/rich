@@ -14,6 +14,10 @@ When the request involves limit-up diffusion, sector linkage, dragon/follower
 classification, or high-low catch-up switching, also read
 `../references/limitup-linkage-framework.md` and
 `../references/high-low-switch-framework.md`.
+When the request involves limit-up relay, continuous-board candidates, capital
+cost, intraday buy points, 20cm elasticity, cross-theme candidates, mid-cap
+anchor accumulation, or post-mortem analysis of failed candidates, also read
+`../references/intraday-capital-cost-framework.md`.
 
 ## Required Workflow
 
@@ -24,7 +28,8 @@ classification, or high-low catch-up switching, also read
 5. Classify the sector within the current emotion cycle: 冰点, 启动, 发酵, 高潮, 分歧, or 退潮.
 6. Compare the target sector against current strongest and weakest sectors, not in isolation.
 7. If money-flow, limit-up, feature, or event data is missing/stale, clearly downgrade confidence.
-8. Output conclusion, evidence, trigger conditions, invalidation conditions, position bias, and data gaps.
+8. For limit-up/relay/catch-up candidates, separate emotion anchors from best attack candidates. Estimate 5/10/20-day VWAP cost, current profit versus 20-day cost, turnover, amount/float, seal/amount, open count, intraday trigger, and invalidation.
+9. Output conclusion, evidence, trigger conditions, invalidation conditions, position bias, and data gaps.
 
 ## Commands
 
@@ -78,6 +83,8 @@ Apply the linkage and high-low-switch overlays:
 - **High-low switch**: valid only when the mainline remains recognized while high/mid-tier symbols diverge; prefer absolute low-position candidates and reject middle-tier acceleration.
 - **Middle-tier veto**: candidates with accelerated recent gains but no leader status should be rejected even if their score is high.
 - **Climax and diffusion risk**: when linkage is too broad or 20cm symbols accelerate together, mark the next session as a profit-taking observation window unless leaders hold premium.
+- **Emotion-anchor separation**: the strongest leader may only be a board thermometer. If lower-position, 20cm, cross-theme, or mid-cap symbols show stronger intraday initiative, rank them separately instead of forcing the leader into the buy-candidate slot.
+- **Intraday reranking**: after auction and the first 15-30 minutes, rerank candidates by premium, VWAP strength, first-seal initiative, seal quality, and whether new funds are choosing high-low switch or elasticity over prior-day leader relay.
 
 Map the classification to emotion-cycle action:
 
@@ -118,6 +125,13 @@ apply these checks before naming candidates:
 - **Amount-heat limitation**: high turnover alone is not enough. If money-flow
   data is missing, call the result "amount-heat catch-up" and require stronger
   trigger/invalidation conditions.
+- **Capital-cost filter**: estimate 5/10/20-day VWAP cost. Candidates far above
+  20-day cost with high turnover and repeated opens are realization/relay risk;
+  candidates near or below 20-day cost that actively seal may be high-low repair,
+  but only if the sector confirms.
+- **20cm/cross-theme overlay**: if risk appetite rises and 20cm or cross-theme
+  symbols lead the board, do not let a pure 10cm leader-only model suppress them.
+  Classify them as separate elasticity candidates with stricter intraday stops.
 
 For a catch-up candidate to pass, it should have: sector purity, adequate
 liquidity, non-accelerated recent gains, leader premium confirmation, and
@@ -146,7 +160,10 @@ For each sector, try to gather:
 - 派生特征: 成交额排名, 主力净流入排名, 净流入/成交额, 抢筹分.
 - 事件: 涨停池, 涨停行业/原因提示, 龙虎榜上榜原因和净买额.
 - 龙头/中军/20cm核心/补涨股.
+- 情绪锚 vs 最佳进攻票是否分离.
 - 最近 3/5 日涨幅 and whether candidates are already accelerated.
+- 5/10/20日量价成本、当前价相对20日成本浮盈、当日换手率、成交额/流通市值、封单/成交额、开板次数.
+- 竞价溢价、VWAP承接、首封时间、弱转强/高开低走信号.
 - News catalyst and risk events.
 - Previous-session climax signals: number of limit-up/20cm symbols, leader
   acceleration, high-amount leaders, and whether rear stocks lagged.
@@ -178,6 +195,11 @@ For each sector, try to gather:
 
 | 股票/细分 | 角色 | 触发条件 | 放弃条件 |
 |---|---|---|---|
+
+## 资金成本与盘中切换
+
+| 股票/细分 | 20日成本浮盈 | 换手/成交强度 | 盘中信号 | 结论 |
+|---|---:|---|---|---|
 
 ## 风险
 

@@ -14,6 +14,10 @@ When the report includes limit-up diffusion, sector linkage, dragon/follower
 classification, or high-low-switch catch-up, also read
 `../references/limitup-linkage-framework.md` and
 `../references/high-low-switch-framework.md`.
+When the report includes limit-up relay, next-session candidate ranking,
+capital-cost analysis, intraday switching, 20cm elasticity, cross-theme
+candidates, or post-mortem analysis of failed candidates, also read
+`../references/intraday-capital-cost-framework.md`.
 
 ## Required Workflow
 
@@ -58,6 +62,10 @@ Add these checks to every rotation/catch-up review:
 - **Limit-up linkage check**: same-sector limit-up count >= 3 is a sector-force signal. Mark only one leader; classify the rest as follower/diffusion observations.
 - **High-low-switch check**: after high/mid-tier divergence, only absolute low-position candidates may remain in the catch-up pool. Middle-tier acceleration is a veto.
 - **T+1 premium risk check**: broad linkage, many 20cm symbols, or fast rear acceleration means next session may be a profit-taking window.
+- **Emotion-anchor separation check**: do not automatically rank the strongest leader as the best buy candidate. Split symbols into emotion anchor, best attack candidate, 20cm elasticity, cross-theme candidate, mid-cap anchor, and rear follower.
+- **Capital-cost check**: estimate 5/10/20-day VWAP cost, current price versus 20-day cost, turnover, amount/float, seal/amount, and open count. High profit plus high turnover is realization risk unless intraday strength proves otherwise.
+- **Intraday reranking check**: next-session candidate ranking must be refreshed by auction, first 15-30 minute VWAP behavior, first-seal initiative, and whether funds choose high-low switch instead of prior-day leader relay.
+- **20cm/cross-theme check**: when risk appetite improves, 20cm and cross-theme symbols may lead the real attack direction even if pure 10cm leaders remain the emotion thermometer.
 
 ## Commands
 
@@ -135,17 +143,22 @@ ssh yibopang@9.134.113.106 'cd /data/home/yibopang/rich && ./scripts/rich-servic
 | 股票 | 板块 | 低位证据 | 触发条件 | 放弃条件 |
 |---|---|---|---|---|
 
-## 八、补涨候选
+## 八、资金成本与盘中切换
+
+| 股票 | 角色 | 20日成本浮盈 | 换手/成交强度 | 盘中确认 | 风险 |
+|---|---|---:|---|---|---|
+
+## 九、补涨候选
 
 | 排名 | 股票 | 评分 | 逻辑 | 触发条件 | 放弃条件 |
 |---|---|---:|---|---|---|
 
-## 九、事件与抢筹观察
+## 十、事件与抢筹观察
 
 | 类型 | 股票/板块 | 证据 | 风险 |
 |---|---|---|---|
 
-## 十、风险标的
+## 十一、风险标的
 
 - 已加速：
 - 高位兑现：
@@ -159,15 +172,20 @@ ssh yibopang@9.134.113.106 'cd /data/home/yibopang/rich && ./scripts/rich-servic
 - 退潮/高潮红线：
 - 中位股接力红线：
 - 联动高潮次日兑现：
+- 情绪锚误当买点：
+- 高换手兑现：
+- 20cm弹性失效：
+- 交叉题材证伪：
 
-## 十一、明日预案
+## 十二、明日预案
 
 ### 剧本 A：主线延续
 ### 剧本 B：高开分化
 ### 剧本 C：资金切换
 ### 剧本 D：高潮次日兑现
+### 剧本 E：高低切换/20cm弹性接力
 
-## 十二、数据缺口
+## 十三、数据缺口
 
 -
 ```
