@@ -18,6 +18,10 @@ When the report includes limit-up relay, next-session candidate ranking,
 capital-cost analysis, intraday switching, 20cm elasticity, cross-theme
 candidates, or post-mortem analysis of failed candidates, also read
 `../references/intraday-capital-cost-framework.md`.
+When the report compares old and new mainlines, discusses CPO/communication
+vs medicine-style switching, double-core resonance, concept-flow
+de-duplication, or next-session divergence/weak-to-strong plans, also read
+`../references/mainline-switch-framework.md`.
 
 ## Required Workflow
 
@@ -66,6 +70,10 @@ Add these checks to every rotation/catch-up review:
 - **Capital-cost check**: estimate 5/10/20-day VWAP cost, current price versus 20-day cost, turnover, amount/float, seal/amount, and open count. High profit plus high turnover is realization risk unless intraday strength proves otherwise.
 - **Intraday reranking check**: next-session candidate ranking must be refreshed by auction, first 15-30 minute VWAP behavior, first-seal initiative, and whether funds choose high-low switch instead of prior-day leader relay.
 - **20cm/cross-theme check**: when risk appetite improves, 20cm and cross-theme symbols may lead the real attack direction even if pure 10cm leaders remain the emotion thermometer.
+- **Mainline-switch check**: when an old mainline has high-position divergence or capacity weakness and a new direction leads fund flow, require both emotion-core and capacity-anchor confirmation before upgrading it from strong repair to mainline fermentation.
+- **Double-core resonance check**: classify symbols into emotion core, 20cm elasticity, capacity anchor, branch leader, and rear follower. A new mainline needs emotion strength and capacity承接 together.
+- **Concept-flow de-duplication check**: do not mechanically add net inflows for overlapping concepts such as 通信、CPO、光通信、算力、AI硬件、PCB. Use industry-board flow and core constituent flow as confirmation.
+- **Divergence-day check**: after broad limit-up or 20cm acceleration, mark the next session as a default分化观察日. Prefer weak-to-strong/VWAP承接 over chasing一致.
 
 ## Commands
 
@@ -172,6 +180,10 @@ ssh yibopang@9.134.113.106 'cd /data/home/yibopang/rich && ./scripts/rich-servic
 - 退潮/高潮红线：
 - 中位股接力红线：
 - 联动高潮次日兑现：
+- 主线切换误判：
+- 概念资金重复计算：
+- 双核心未共振：
+- 分化日追一致：
 - 情绪锚误当买点：
 - 高换手兑现：
 - 20cm弹性失效：

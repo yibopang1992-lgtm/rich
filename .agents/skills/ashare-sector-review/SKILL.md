@@ -18,6 +18,10 @@ When the request involves limit-up relay, continuous-board candidates, capital
 cost, intraday buy points, 20cm elasticity, cross-theme candidates, mid-cap
 anchor accumulation, or post-mortem analysis of failed candidates, also read
 `../references/intraday-capital-cost-framework.md`.
+When the request involves mainline switching, old-vs-new mainline comparison,
+double-core resonance, CPO/communication vs medicine-style comparisons,
+concept-flow de-duplication, or next-session divergence/weak-to-strong plans,
+also read `../references/mainline-switch-framework.md`.
 
 ## Required Workflow
 
@@ -29,7 +33,8 @@ anchor accumulation, or post-mortem analysis of failed candidates, also read
 6. Compare the target sector against current strongest and weakest sectors, not in isolation.
 7. If money-flow, limit-up, feature, or event data is missing/stale, clearly downgrade confidence.
 8. For limit-up/relay/catch-up candidates, separate emotion anchors from best attack candidates. Estimate 5/10/20-day VWAP cost, current profit versus 20-day cost, turnover, amount/float, seal/amount, open count, intraday trigger, and invalidation.
-9. Output conclusion, evidence, trigger conditions, invalidation conditions, position bias, and data gaps.
+9. For mainline switching, require both emotion-core and capacity-anchor evidence; if concepts overlap, do not simply add their net inflows.
+10. Output conclusion, evidence, trigger conditions, invalidation conditions, position bias, and data gaps.
 
 ## Commands
 
@@ -71,6 +76,7 @@ Classify a sector using this hierarchy:
 
 - **Strong mainline**: sector fund flow leads, turnover expands, breadth is high, limit-up ladder exists, leaders and mid-cap anchors confirm.
 - **Candidate mainline**: strong one-day or two-day improvement, but continuity or internal ladder is not fully confirmed.
+- **Mainline-switch candidate**: old mainline shows high-position divergence or capacity weakness while a new direction ranks high in fund flow and shows emotion-core plus capacity-anchor resonance. Upgrade only after next-session divergence is absorbed.
 - **Catch-up opportunity**: old mainline remains strong or just diffused; second-tier stocks in related sectors begin receiving funds while not yet accelerated.
 - **Rotation hotspot**: price action is visible, but funding or breadth evidence is incomplete.
 - **Climax risk**: many stocks surge together, leaders accelerate, rear stocks are pulled rapidly, next-day consistency risk rises.
@@ -85,6 +91,8 @@ Apply the linkage and high-low-switch overlays:
 - **Climax and diffusion risk**: when linkage is too broad or 20cm symbols accelerate together, mark the next session as a profit-taking observation window unless leaders hold premium.
 - **Emotion-anchor separation**: the strongest leader may only be a board thermometer. If lower-position, 20cm, cross-theme, or mid-cap symbols show stronger intraday initiative, rank them separately instead of forcing the leader into the buy-candidate slot.
 - **Intraday reranking**: after auction and the first 15-30 minutes, rerank candidates by premium, VWAP strength, first-seal initiative, seal quality, and whether new funds are choosing high-low switch or elasticity over prior-day leader relay.
+- **Double-core resonance**: a new mainline needs both emotion-core strength and capacity-anchor承接. Emotion without中军 is usually套利;中军 without连板 is usually趋势修复.
+- **Concept-flow de-duplication**: overlapping concepts such as 通信、CPO、光通信、算力、AI硬件、PCB cannot be summed mechanically; confirm with industry boards and core constituents.
 
 Map the classification to emotion-cycle action:
 

@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-08-15T10:34:57.949091+08:00",
+  "price_start": "20260720",
+  "price_end": "20260815",
+  "price_source": "新浪财经未复权日线；Baostock抽样交叉核对",
+  "transaction_rows": 612,
+  "unique_stock_labels": 292,
+  "mapped_stocks": 291,
+  "price_rows": 5738,
+  "investment_rows": 360,
+  "mapping_failures": 0,
+  "price_fetch_failures": 0,
+  "method": "单日榜单用当日市场VWAP；3日榜单用最近3个交易日市场VWAP；同一游资同股按FIFO匹配卖出；未卖出按截止日收盘价估值。",
+  "limitations": "龙虎榜披露的是席位汇总金额而非逐笔成交价，本报告收益均为估算；截图遮挡和3日榜单降低置信度。"
+}

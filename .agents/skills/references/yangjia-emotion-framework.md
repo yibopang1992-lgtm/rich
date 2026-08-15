@@ -71,6 +71,36 @@ Do not analyze a stock in isolation. Always compare:
 - Whether another new hotspot is absorbing marginal funds.
 - Whether the candidate is pure to the reviewed sector or only adjacent.
 
+## Leader Competition Rules
+
+When several sectors or several symbols inside one sector are competing for
+mainline status, do not treat all core symbols as short-term arbitrage trades.
+Separate **leader candidates** from ordinary followers:
+
+- A leader candidate is still competing if its sector is not fading, it remains
+  one of the highest boards / earliest seals / strongest identifiers, and
+  same-sector anchors or followers are still confirming.
+- Do not sell a leader candidate only because it has intraday profit while the
+  sector and the candidate have not failed. In this phase, losing may mean
+  giving back a few points, while winning may add a full board or more.
+- Sell or downgrade only after competition failure: leader candidate loses VWAP
+  with no repair, is clearly carded by a stronger same-sector symbol, sector
+  followers lose premium together, or a new mainline absorbs marginal funds.
+- If the stock is only a follower or rear acceleration, keep normal arbitrage
+  discipline; these leader rules do not protect weak back-row symbols.
+
+When a mainline is stable or entering fermentation, think in portfolios rather
+than a single symbol:
+
+- Emotion leader: validates height and risk appetite.
+- Branch leader: shows which sub-theme money is choosing.
+- Mid-cap / capacity anchor: validates institutional or trend capital.
+- Low-position catch-up: provides elasticity only when leaders and anchors
+  confirm.
+
+Avoid selling out the whole theme during normal intraday volatility if the
+sector has not entered fading or broad divergence.
+
 ## Catch-up Candidate Rules
 
 A catch-up candidate is valid only when:

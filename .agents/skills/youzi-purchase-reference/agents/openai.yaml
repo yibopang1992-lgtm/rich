@@ -1,0 +1,4 @@
+interface:
+  display_name: "游资购买参考"
+  short_description: "基于已验证龙虎榜样本分析游资共识、持仓周期与兑现风险"
+  default_prompt: "使用 $youzi-purchase-reference 分析这张新龙虎榜截图，识别多游资一致方向、快速套利风险和可能处于铺垫初期的板块与个股。"
